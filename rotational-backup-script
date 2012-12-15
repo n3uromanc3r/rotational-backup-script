@@ -1,0 +1,174 @@
+#!/bin/bash
+
+##############################
+## ROTATIONAL BACKUP SCRIPT ##
+##############################
+
+# AUTHOR:	Keith Hill <keito@virusav.com>
+# VERSION:	1.0
+# LICENSE:	GPL v3 (http://www.gnu.org/licenses/gpl.html)
+# NAME:		Rotational Backup Script
+# DESCRIPTION:	A bash shell script that maintains local rotational backups of remote folders
+#               * Relies on - rsync, mailutils
+#               * To initialize the backup directories (first run) pass the -i flag
+#               * eg: /usr/local/bin/backup -i
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+
+######################
+## DEFINE VARIABLES ##
+######################
+
+REMOTE_LOCATION="/home/foo/bar/" # include trailing slash
+REMOTE_USER="foo"
+REMOTE_SERVER="000.000.000.000"
+BACKUP_LOCATION="/home/baz/qux" # exclude trailing slash
+NUMBER_OF_BACKUPS_TO_KEEP="30"
+COMPANY_NAME="Example"
+EMAIL_ADDRESS="anon@example.com"
+
+DATETIME="`date "+%F-%T"`"
+LOG_FILE="$BACKUP_LOCATION/logs/$DATETIME.log"
+EXCLUDE_LIST="$BACKUP_LOCATION/.excludes.txt"
+
+
+
+######################
+## DEFINE FUNCTIONS ##
+######################
+
+function prechecks {
+
+	## CREATE BACKUP DIRECTORY IF MISSING
+	if [ ! -d $BACKUP_LOCATION ]; then
+		mkdir $BACKUP_LOCATION || { failure ''"$1"' Failed! Could not create missing backup directory -- '"`date "+%F-%T"`"''; }
+	fi
+
+	cd $BACKUP_LOCATION
+
+	## CREATE LOG DIRECTORY IF MISSING
+	if [ ! -d "logs" ]; then
+		mkdir "logs" || { failure ''"$1"' Failed! Could not create missing log directory -- '"`date "+%F-%T"`"''; }
+	fi
+
+	## CREATE EXCLUDE LIST IF MISSING
+	if [ ! -f "$EXCLUDE_LIST" ]; then
+		touch "$EXCLUDE_LIST" || { failure ''"$1"' Failed! Could not create missing exclude list -- '"`date "+%F-%T"`"''; }
+		echo -e "If you have any files/folders you wish to exclude during the backup, please add them to the '.excludes.txt' file in the backup directory, 1 entry per line, then save the file.\nPress enter when you are done..."
+		read CONTINUE
+	fi
+
+	## CREATE LOG FILE
+	touch "$LOG_FILE" || { failure ''"$1"' Failed! Failed to create log file -- '"`date "+%F-%T"`"''; }
+}
+
+
+function initialize {	 
+
+	prechecks "Initialization"
+	echo "=========================================================" >> "$LOG_FILE"
+	echo "==> Beginning backup initialization - $DATETIME" >> "$LOG_FILE"
+
+	## CREATE BACKUPS
+	echo -e "\nRSYNC INFORMATION:" >> "$LOG_FILE"
+	rsync -avz -e ssh "$REMOTE_USER@$REMOTE_SERVER:$REMOTE_LOCATION" "backup.$NUMBER_OF_BACKUPS_TO_KEEP/" >> "$LOG_FILE" || { failure 'Initialization Failed! Failed on first rsync run -- '"`date "+%F-%T"`"'' "`cat "$LOG_FILE"`"; }
+
+	for (( i=NUMBER_OF_BACKUPS_TO_KEEP; i > 1; i-- )); do
+		echo -e "\nRSYNC INFORMATION:" >> "$LOG_FILE"
+		rsync -avz --exclude-from $EXCLUDE_LIST --delete --link-dest="../backup.$i" -e ssh "$REMOTE_USER@$REMOTE_SERVER:$REMOTE_LOCATION" backup.$((i-1)) >> "$LOG_FILE" || { failure 'Initialization Failed! Failed on rsync link-up -- '"`date "+%F-%T"`"'' "`cat "$LOG_FILE"`"; }	
+	done
+
+	COMPLETED_DATETIME="`date "+%F-%T"`"
+	echo -e "\n==> Initialization successfully completed at $COMPLETED_DATETIME" >> "$LOG_FILE"
+	echo "=========================================================" >> "$LOG_FILE"
+
+	success "`cat "$LOG_FILE"`" ''"$COMPANY_NAME"' Backups Initialized Successfully!' 'Initialized '"$NUMBER_OF_BACKUPS_TO_KEEP"' rotational backup folders!'
+	exit 0
+}
+
+
+function failure {
+	if [ -z "$2" ]; then
+		BODY="$1"
+	else
+		BODY="$1\n\n$2"
+	fi
+
+	echo -e "$BODY" | mail -s 'URGENT ATTENTION! '"$COMPANY_NAME"' Backup Failure!' "$EMAIL_ADDRESS"
+	"$1" >&2; exit 1;
+}
+
+
+function success {
+	SUBJECT=$2
+
+	if [ -z "$3" ]; then
+		BODY="$1"
+		echo "$SUBJECT"
+	else
+		INFO="$3"
+		BODY="$3\n\n$1"
+		echo "$INFO"
+	fi
+
+	echo -e "$BODY" | mail -s "$SUBJECT" "$EMAIL_ADDRESS"
+	exit 0
+}
+
+
+
+
+
+#####################################
+## IS THIS AN INTITIALIZATION RUN? ##
+#####################################
+
+while getopts ":i" opt; do
+	case $opt in
+		i)	initialize;;
+		\?)	echo "Invalid option: -$OPTARG" >&2; exit 1;
+	esac
+done
+
+
+
+
+##################
+## STANDARD RUN ##
+##################
+
+prechecks "Backup"
+
+echo "=========================================================" >> "$LOG_FILE"
+echo "==> Beginning remote server backup at $DATETIME" >> "$LOG_FILE"
+
+## REMOVE OLDEST BACKUP
+rm -rf "backup.$NUMBER_OF_BACKUPS_TO_KEEP"  || { failure 'Backup Failed! Failed to remove oldest folder! -- '"`date "+%F-%T"`"'' "`cat "$LOG_FILE"`"; }
+echo "==> Removed oldest backup file..." >> "$LOG_FILE"
+
+## ROTATE PREVIOUS BACKUPS
+for (( i=NUMBER_OF_BACKUPS_TO_KEEP; i > 1; i-- )); 
+do 
+mv backup.$((i-1)) backup.$i || { failure 'Backup Failed! Failed on rotation (num '"$i"') -- '"`date "+%F-%T"`"'' "`cat "$LOG_FILE"`"; }
+done
+echo "==> Rotated previous backups..." >> "$LOG_FILE"
+
+## CREATE LATEST BACKUP
+echo -e "\nRSYNC INFORMATION:" >> "$LOG_FILE"
+rsync -avz --exclude-from $EXCLUDE_LIST --delete --link-dest="../backup.2" -e ssh "$REMOTE_USER@$REMOTE_SERVER:$REMOTE_LOCATION" "backup.1"  >> "$LOG_FILE" || { failure 'Backup Failed! Failed on rsync phase -- '"`date "+%F-%T"`"'' "`cat "$LOG_FILE"`"; }
+echo -e ''"\n"'==> SUCCESS! Backed up latest changes...' >> "$LOG_FILE"
+COMPLETED_DATETIME="`date "+%F-%T"`"
+echo "==> Backup completed at $COMPLETED_DATETIME" >> "$LOG_FILE"
+echo "=========================================================" >> "$LOG_FILE"
+
+success "`cat "$LOG_FILE"`" ''"$COMPANY_NAME"' Backup Success!'
+exit 0
