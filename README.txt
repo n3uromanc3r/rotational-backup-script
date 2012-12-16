@@ -100,11 +100,11 @@ The first time it is run, you must use the -i flag to initialize the backup dire
 
 During the initialization, you have the opportunity to add files and folders to an exclusion list for rsync.  The files/folders will be ignored during backups.
 
-Once setup is complete, all subsequent backups can be executed using
+Once setup is complete, all subsequent backups can be executed using:
 
 	rotational-backup-script
 
-The configured email recepient should receive an email after the backup is complete.  Logs will also be created in the configured location.
+The configured email recipient should receive an email after the backup is complete.  Logs will also be created in the configured location.
 
 
 
