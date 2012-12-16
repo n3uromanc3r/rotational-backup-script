@@ -80,7 +80,7 @@ To generate the key pair, run this command on your local machine:
 
 ...when prompted, you can hit enter to select the default location for the key, and then hit enter without entering a passphrase too.
 
-Once the key pair has bee generated, we then copy the public key to the remote server:
+Once the key pair has been generated, we then copy the public key to the remote server:
 
 	ssh-copy-id foo@example.com
 
