@@ -13,6 +13,7 @@
 1.  How to Install
 2.  Additional Requirements
 --> 2.1 How to Setup Postfix
+--> 2.2 How to Setup Passwordless SSH Login
 3.  Configuration
 4.  First Run
 5.  Automation
@@ -22,7 +23,7 @@
 1. How to Install
 ____________________________________________________________________________
 
-Once you have the files downloaded, you must make them executable:
+Once you have the file downloaded, you must make it executable:
 
 	chmod +x rotational-backup-script
 
@@ -66,6 +67,29 @@ Then select the following from each screen (on a typical setup):
 
 
 
+2.2 How to Setup Passwordless SSH Login
+____________________________________________________________________________
+
+This script is designed to be part of an automated process.  So it is essential that the ssh connection used in the script does not require a user to enter a password during authentication.
+
+To setup passwordless login, we need to generate an ssh key pair (private and public), and then copy the public key to the remote server.
+
+To generate the key pair, run this command on your local machine:
+
+	ssh-keygen
+
+...when prompted, you can hit enter to select the default location for the key, and then hit enter without entering a passphrase too.
+
+Once the key pair has bee generated, we then copy the public key to the remote server:
+
+	ssh-copy-id foo@example.com
+
+We should now be able to login to the remote server without the need for a password by issuing the following command:
+
+	ssh foo@example.com
+
+
+
 3.  Configuration
 ____________________________________________________________________________
 
@@ -94,11 +118,11 @@ EMAIL_ADDRESS="anon@example.com"
 4.  First Run
 ____________________________________________________________________________
 
-The first time it is run, you must use the -i flag to initialize the backup directory structure.
+The first time it is run, you must use the -i flag to initialize the backup directory structure:
 
 	rotational-backup-script -i
 
-During the initialization, you have the opportunity to add files and folders to an exclusion list for rsync.  The files/folders will be ignored during backups.
+During the initialization, you have the opportunity to add files and folders to an exclusion list for rsync.  These files/folders will be ignored during backups.
 
 Once setup is complete, all subsequent backups can be executed using:
 
