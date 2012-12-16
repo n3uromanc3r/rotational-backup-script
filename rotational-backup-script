@@ -11,7 +11,7 @@
 # DESCRIPTION:	A bash shell script that maintains local rotational backups of remote folders
 #               * Relies on - rsync, mailutils, postfix
 #               * To initialize the backup directories (first run) pass the -i flag
-#               * eg: /usr/local/bin/backup -i
+#               * eg: rotational-backup-script -i
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
