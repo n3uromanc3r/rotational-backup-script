@@ -9,7 +9,7 @@
 # LICENSE:	GPL v3 (http://www.gnu.org/licenses/gpl.html)
 # NAME:		Rotational Backup Script
 # DESCRIPTION:	A bash shell script that maintains local rotational backups of remote folders
-#               * Relies on - rsync, mailutils
+#               * Relies on - rsync, mailutils, postfix
 #               * To initialize the backup directories (first run) pass the -i flag
 #               * eg: /usr/local/bin/backup -i
 
